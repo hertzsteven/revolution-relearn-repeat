@@ -34,12 +34,12 @@ const EnhancedTextToSpeech = ({
     setIsLoading(true);
     
     try {
-      // Use ElevenLabs API through Supabase Edge Function
+      // Use Supabase Edge Function for speech generation
       const audioBlob = await aiService.generateSpeech(text);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       
-      audio.onloadstart = () => {
+      audio.onplay = () => {
         setIsLoading(false);
         onPlay(text);
       };
@@ -51,9 +51,8 @@ const EnhancedTextToSpeech = ({
       
       audio.onerror = () => {
         setIsLoading(false);
-        console.error('Audio playback failed');
         // Fallback to browser speech synthesis
-        fallbackToWebSpeech();
+        onPlay(text);
       };
       
       await audio.play();
@@ -61,22 +60,7 @@ const EnhancedTextToSpeech = ({
       console.error('Error with ElevenLabs TTS:', error);
       setIsLoading(false);
       // Fallback to browser speech synthesis
-      fallbackToWebSpeech();
-    }
-  };
-
-  const fallbackToWebSpeech = () => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.8;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
-      
-      utterance.onstart = () => onPlay(text);
-      utterance.onend = () => onStop();
-      utterance.onerror = () => onStop();
-      
-      speechSynthesis.speak(utterance);
+      onPlay(text);
     }
   };
 

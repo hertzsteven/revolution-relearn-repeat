@@ -21,22 +21,10 @@ const Index = () => {
 
   const handleTopicSelect = (topic: string) => {
     setSelectedTopic(topic);
-    
-    // Check if the user has taken the quiz before and has weak areas
-    const topicProgress = studentProgress[topic as keyof typeof studentProgress];
-    if (topicProgress && topicProgress.score > 0 && topicProgress.weakAreas.length > 0 && !topicProgress.completed) {
-      // If they have weak areas and haven't completed the topic, go to learning
-      console.log('User has weak areas, going to learning mode:', topicProgress.weakAreas);
-      setCurrentMode('learning');
-    } else {
-      // Otherwise, start with the quiz
-      setCurrentMode('quiz');
-    }
+    setCurrentMode('quiz');
   };
 
   const handleQuizComplete = (results: { score: number; weakAreas: string[]; aiAnalysis?: any }) => {
-    console.log('Quiz completed with results:', results);
-    
     setStudentProgress(prev => ({
       ...prev,
       [selectedTopic]: {
@@ -47,19 +35,11 @@ const Index = () => {
       }
     }));
     
-    // If they have weak areas (didn't get 100%), go to learning mode
     if (results.weakAreas.length > 0) {
-      console.log('Moving to learning mode for weak areas:', results.weakAreas);
       setCurrentMode('learning');
     } else {
-      console.log('No weak areas, returning to dashboard');
       setCurrentMode('dashboard');
     }
-  };
-
-  const handleLearningComplete = () => {
-    console.log('Learning completed, returning to quiz');
-    setCurrentMode('quiz');
   };
 
   const renderContent = () => {
@@ -73,12 +53,11 @@ const Index = () => {
           />
         );
       case 'learning':
-        const currentProgress = studentProgress[selectedTopic as keyof typeof studentProgress];
         return (
           <LearningContent 
             topic={selectedTopic}
-            weakAreas={currentProgress?.weakAreas || []}
-            onComplete={handleLearningComplete}
+            weakAreas={studentProgress[selectedTopic as keyof typeof studentProgress]?.weakAreas || []}
+            onComplete={() => setCurrentMode('quiz')}
             onBack={() => setCurrentMode('dashboard')}
           />
         );
