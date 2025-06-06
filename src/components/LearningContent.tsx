@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,7 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
   const [completedSections, setCompletedSections] = useState<string[]>([]);
   const [currentSection, setCurrentSection] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [currentPlayingText, setCurrentPlayingText] = useState<string>('');
 
   const getCurrentMaterials = () => {
     const materials = learningMaterials[topic as keyof typeof learningMaterials];
@@ -41,41 +40,18 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
 
   const allSectionsCompleted = materialKeys.length > 0 && materialKeys.every(key => completedSections.includes(key));
 
-  const playTextToSpeech = async (text: string) => {
-    try {
-      if (currentAudio) {
-        currentAudio.pause();
-        setCurrentAudio(null);
-        setIsPlaying(false);
-      }
-
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.8;
-        utterance.pitch = 1;
-        utterance.volume = 0.8;
-        
-        utterance.onstart = () => setIsPlaying(true);
-        utterance.onend = () => setIsPlaying(false);
-        utterance.onerror = () => setIsPlaying(false);
-        
-        speechSynthesis.speak(utterance);
-      }
-    } catch (error) {
-      console.error('Error playing text-to-speech:', error);
-      setIsPlaying(false);
-    }
+  const handlePlayAudio = (text: string) => {
+    setCurrentPlayingText(text);
+    setIsPlaying(true);
   };
 
-  const stopAudio = () => {
-    if (currentAudio) {
-      currentAudio.pause();
-      setCurrentAudio(null);
-    }
+  const handleStopAudio = () => {
+    setIsPlaying(false);
+    setCurrentPlayingText('');
+    // Stop any ongoing speech synthesis
     if ('speechSynthesis' in window) {
       speechSynthesis.cancel();
     }
-    setIsPlaying(false);
   };
 
   if (materialKeys.length === 0) {
@@ -144,13 +120,13 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
                 currentSection={currentSection}
                 totalSections={materialKeys.length}
                 isCompleted={completedSections.includes(key)}
-                isPlaying={isPlaying}
+                isPlaying={isPlaying && currentPlayingText !== ''}
                 onComplete={() => handleSectionComplete(key)}
                 onPrevious={() => setCurrentSection(prev => prev - 1)}
                 onNext={() => setCurrentSection(prev => prev + 1)}
                 onFinish={onComplete}
-                onPlayAudio={playTextToSpeech}
-                onStopAudio={stopAudio}
+                onPlayAudio={handlePlayAudio}
+                onStopAudio={handleStopAudio}
               />
             );
           })}
