@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, BookOpen, Video, FileText, CheckCircle, Brain, Lightbulb } from 'lucide-react';
+import { ArrowLeft, BookOpen, Video, FileText, CheckCircle, Brain, Lightbulb, Volume2, VolumeX } from 'lucide-react';
 
 interface LearningContentProps {
   topic: string;
@@ -15,6 +15,8 @@ interface LearningContentProps {
 const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningContentProps) => {
   const [completedSections, setCompletedSections] = useState<string[]>([]);
   const [currentSection, setCurrentSection] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   const learningMaterials = {
     causes: {
@@ -105,6 +107,61 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
 
   const allSectionsCompleted = materialKeys.length > 0 && materialKeys.every(key => completedSections.includes(key));
 
+  const playTextToSpeech = async (text: string) => {
+    try {
+      // Stop any currently playing audio
+      if (currentAudio) {
+        currentAudio.pause();
+        setCurrentAudio(null);
+        setIsPlaying(false);
+      }
+
+      // Note: This requires an ElevenLabs API key to be set up
+      // For now, we'll use the browser's built-in speech synthesis as a fallback
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.8;
+        utterance.pitch = 1;
+        utterance.volume = 0.8;
+        
+        utterance.onstart = () => setIsPlaying(true);
+        utterance.onend = () => setIsPlaying(false);
+        utterance.onerror = () => setIsPlaying(false);
+        
+        speechSynthesis.speak(utterance);
+      }
+    } catch (error) {
+      console.error('Error playing text-to-speech:', error);
+      setIsPlaying(false);
+    }
+  };
+
+  const stopAudio = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      setCurrentAudio(null);
+    }
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
+    setIsPlaying(false);
+  };
+
+  const getContentText = (material: any, tabValue: string) => {
+    switch (tabValue) {
+      case 'overview':
+        return material.content.overview;
+      case 'keypoints':
+        return `Key Points: ${material.content.keyPoints.join('. ')}.`;
+      case 'deepdive':
+        return material.content.deepDive;
+      case 'examples':
+        return `Examples: ${material.content.examples.join('. ')}.`;
+      default:
+        return material.content.overview;
+    }
+  };
+
   if (materialKeys.length === 0) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -155,7 +212,7 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
               <h3 className="font-medium text-blue-900">Personalized Learning Path</h3>
               <p className="text-blue-800 text-sm">
                 Based on your quiz results, I've identified {weakAreas.length} area{weakAreas.length > 1 ? 's' : ''} 
-                where additional study will help improve your understanding.
+                where additional study will help improve your understanding. Click the audio button to listen to any section.
               </p>
             </div>
           </div>
@@ -223,10 +280,21 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
             return (
               <Card key={key}>
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <BookOpen className="h-5 w-5" />
-                    <span>{material.title}</span>
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2">
+                      <BookOpen className="h-5 w-5" />
+                      <span>{material.title}</span>
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={isPlaying ? stopAudio : () => playTextToSpeech(getContentText(material, 'overview'))}
+                      className="flex items-center space-x-2"
+                    >
+                      {isPlaying ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      <span>{isPlaying ? 'Stop' : 'Listen'}</span>
+                    </Button>
+                  </div>
                 </CardHeader>
                 
                 <CardContent>
@@ -239,12 +307,36 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
                     </TabsList>
                     
                     <TabsContent value="overview" className="space-y-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">Overview</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => playTextToSpeech(material.content.overview)}
+                          className="flex items-center space-x-1"
+                        >
+                          <Volume2 className="h-3 w-3" />
+                          <span className="text-xs">Play</span>
+                        </Button>
+                      </div>
                       <div className="prose max-w-none">
                         <p className="text-gray-700 leading-relaxed">{material.content.overview}</p>
                       </div>
                     </TabsContent>
                     
                     <TabsContent value="keypoints" className="space-y-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">Key Points</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => playTextToSpeech(getContentText(material, 'keypoints'))}
+                          className="flex items-center space-x-1"
+                        >
+                          <Volume2 className="h-3 w-3" />
+                          <span className="text-xs">Play</span>
+                        </Button>
+                      </div>
                       <ul className="space-y-3">
                         {material.content.keyPoints.map((point, idx) => (
                           <li key={idx} className="flex items-start space-x-3">
@@ -256,12 +348,36 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
                     </TabsContent>
                     
                     <TabsContent value="deepdive" className="space-y-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">Deep Dive</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => playTextToSpeech(material.content.deepDive)}
+                          className="flex items-center space-x-1"
+                        >
+                          <Volume2 className="h-3 w-3" />
+                          <span className="text-xs">Play</span>
+                        </Button>
+                      </div>
                       <div className="bg-gray-50 rounded-lg p-4">
                         <p className="text-gray-700 leading-relaxed">{material.content.deepDive}</p>
                       </div>
                     </TabsContent>
                     
                     <TabsContent value="examples" className="space-y-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">Examples</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => playTextToSpeech(getContentText(material, 'examples'))}
+                          className="flex items-center space-x-1"
+                        >
+                          <Volume2 className="h-3 w-3" />
+                          <span className="text-xs">Play</span>
+                        </Button>
+                      </div>
                       <div className="space-y-3">
                         {material.content.examples.map((example, idx) => (
                           <div key={idx} className="border-l-4 border-blue-500 pl-4 py-2">
