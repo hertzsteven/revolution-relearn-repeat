@@ -1,18 +1,5 @@
 
-import { createClient } from '@supabase/supabase-js'
-
-// Get environment variables with fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-// Create a default client or null if not configured
-let supabase: any = null
-
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey)
-} else {
-  console.warn('Supabase environment variables not configured. Some features may not work.')
-}
+import { supabase } from '@/integrations/supabase/client'
 
 interface QuizAnalysisResult {
   score: number;
@@ -38,11 +25,6 @@ class SupabaseService {
     topic: string,
     userId?: string
   ): Promise<QuizAnalysisResult> {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, using fallback analysis');
-      return this.getFallbackAnalysis(questions, answers);
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('analyze-quiz', {
         body: {
@@ -76,10 +58,6 @@ class SupabaseService {
   }
 
   async generatePersonalizedContent(request: LearningContentRequest): Promise<any> {
-    if (!this.isConfigured()) {
-      throw new Error('Supabase not configured. Please set up Supabase integration to use this feature.');
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('generate-content', {
         body: request
@@ -95,10 +73,6 @@ class SupabaseService {
   }
 
   async generateSpeech(text: string, voiceId?: string): Promise<Blob> {
-    if (!this.isConfigured()) {
-      throw new Error('Supabase not configured. Please set up Supabase integration to use text-to-speech.');
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('generate-speech', {
         body: {
@@ -107,9 +81,22 @@ class SupabaseService {
         }
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
       
-      // Convert the response to a blob
+      // The data should already be a blob or array buffer
+      if (data instanceof Blob) {
+        return data;
+      }
+      
+      // If it's an array buffer, convert to blob
+      if (data instanceof ArrayBuffer) {
+        return new Blob([data], { type: 'audio/mpeg' });
+      }
+      
+      // If it's base64 or other format, handle accordingly
       const audioBlob = new Blob([data], { type: 'audio/mpeg' })
       return audioBlob
 
@@ -126,11 +113,6 @@ class SupabaseService {
     weakAreas: string[];
     aiAnalysis: any;
   }) {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, skipping quiz session save');
-      return null;
-    }
-
     try {
       const { data, error } = await supabase
         .from('quiz_sessions')
@@ -158,11 +140,6 @@ class SupabaseService {
     completed: boolean;
     timeSpent: number;
   }) {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, skipping progress save');
-      return null;
-    }
-
     try {
       const { data, error } = await supabase
         .from('learning_progress')
@@ -185,11 +162,6 @@ class SupabaseService {
   }
 
   async getUserProgress(userId: string) {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, returning empty progress');
-      return [];
-    }
-
     try {
       const { data, error } = await supabase
         .from('learning_progress')
