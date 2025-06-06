@@ -15,6 +15,14 @@ interface LearningContentRequest {
 }
 
 class AIService {
+  private apiKey: string = '';
+
+  setApiKey(key: string) {
+    this.apiKey = key;
+    // Store in localStorage for persistence
+    localStorage.setItem('openai_api_key', key);
+  }
+
   async analyzeQuizResults(
     questions: any[], 
     answers: number[], 
