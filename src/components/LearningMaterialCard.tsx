@@ -1,8 +1,9 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookOpen } from 'lucide-react';
-import TextToSpeechButton from './TextToSpeechButton';
+import EnhancedTextToSpeech from './EnhancedTextToSpeech';
 import { getContentText } from '@/utils/learningMaterials';
 
 interface LearningMaterialCardProps {
@@ -55,7 +56,7 @@ const LearningMaterialCard = ({
           <TabsContent value="overview" className="space-y-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium">Overview</h4>
-              <TextToSpeechButton
+              <EnhancedTextToSpeech
                 text={material.content.overview}
                 isPlaying={isPlaying}
                 onPlay={onPlayAudio}
@@ -72,7 +73,7 @@ const LearningMaterialCard = ({
           <TabsContent value="keypoints" className="space-y-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium">Key Points</h4>
-              <TextToSpeechButton
+              <EnhancedTextToSpeech
                 text={getContentText(material, 'keypoints')}
                 isPlaying={isPlaying}
                 onPlay={onPlayAudio}
@@ -94,7 +95,7 @@ const LearningMaterialCard = ({
           <TabsContent value="deepdive" className="space-y-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium">Deep Dive</h4>
-              <TextToSpeechButton
+              <EnhancedTextToSpeech
                 text={material.content.deepDive}
                 isPlaying={isPlaying}
                 onPlay={onPlayAudio}
@@ -111,7 +112,7 @@ const LearningMaterialCard = ({
           <TabsContent value="examples" className="space-y-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium">Examples</h4>
-              <TextToSpeechButton
+              <EnhancedTextToSpeech
                 text={getContentText(material, 'examples')}
                 isPlaying={isPlaying}
                 onPlay={onPlayAudio}

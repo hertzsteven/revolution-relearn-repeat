@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,8 @@ import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle, XCircle, Brain, Timer } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Brain, Timer, Sparkles } from 'lucide-react';
+import { aiService } from '@/utils/aiService';
 
 interface Question {
   id: string;
@@ -20,7 +20,7 @@ interface Question {
 
 interface QuizInterfaceProps {
   topic: string;
-  onComplete: (results: { score: number; weakAreas: string[] }) => void;
+  onComplete: (results: { score: number; weakAreas: string[]; aiAnalysis?: any }) => void;
   onBack: () => void;
 }
 
@@ -31,6 +31,8 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
   const [showResult, setShowResult] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
   const [quizStarted, setQuizStarted] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
 
   // Sample questions - in a real app, these would come from a database
   const questionSets = {
@@ -133,19 +135,37 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
     }
   };
 
-  const handleSubmitQuiz = (finalAnswers?: number[]) => {
+  const handleSubmitQuiz = async (finalAnswers?: number[]) => {
     const submittedAnswers = finalAnswers || answers;
-    const correctAnswers = submittedAnswers.filter((answer, index) => answer === questions[index].correct).length;
-    const score = Math.round((correctAnswers / questions.length) * 100);
+    setIsAnalyzing(true);
     
-    // AI Analysis simulation - identify weak areas
-    const weakAreas = questions.filter((q, index) => submittedAnswers[index] !== q.correct).map(q => q.topic);
-    const uniqueWeakAreas = [...new Set(weakAreas)];
-    
-    setShowResult(true);
-    setTimeout(() => {
-      onComplete({ score, weakAreas: uniqueWeakAreas });
-    }, 3000);
+    try {
+      // Use AI service for analysis
+      const analysis = await aiService.analyzeQuizResults(questions, submittedAnswers, topic);
+      setAiAnalysis(analysis);
+      
+      setShowResult(true);
+      setTimeout(() => {
+        onComplete({ 
+          score: analysis.score, 
+          weakAreas: analysis.weakAreas,
+          aiAnalysis: analysis
+        });
+      }, 4000);
+    } catch (error) {
+      console.error('Error analyzing quiz:', error);
+      // Fallback to simple analysis
+      const correctAnswers = submittedAnswers.filter((answer, index) => answer === questions[index].correct).length;
+      const score = Math.round((correctAnswers / questions.length) * 100);
+      const weakAreas = questions.filter((q, index) => submittedAnswers[index] !== q.correct).map(q => q.topic);
+      
+      setShowResult(true);
+      setTimeout(() => {
+        onComplete({ score, weakAreas: [...new Set(weakAreas)] });
+      }, 3000);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -176,13 +196,13 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
           <CardHeader>
             <CardTitle className="text-2xl flex items-center justify-center space-x-2">
               <Brain className="h-6 w-6" />
-              <span>{getTopicTitle(topic)} - Assessment</span>
+              <span>{getTopicTitle(topic)} - AI Assessment</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <p className="text-lg text-gray-600">
-                Ready to test your knowledge? This adaptive quiz will assess your understanding and identify areas for improvement.
+                Ready to test your knowledge? This AI-powered quiz will provide intelligent analysis and personalized learning recommendations.
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
@@ -200,16 +220,19 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
                 </div>
               </div>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-2xl mx-auto">
-                <h3 className="font-medium text-yellow-800 mb-2">AI-Powered Learning</h3>
-                <p className="text-sm text-yellow-700">
-                  Our system analyzes your responses to identify knowledge gaps and provides personalized learning content to help you improve.
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto">
+                <h3 className="font-medium text-blue-800 mb-2 flex items-center space-x-2">
+                  <Sparkles className="h-4 w-4" />
+                  <span>AI-Powered Analysis</span>
+                </h3>
+                <p className="text-sm text-blue-700">
+                  Our advanced AI analyzes your responses to provide personalized feedback, identify specific knowledge gaps, and generate custom learning content tailored to your needs.
                 </p>
               </div>
             </div>
 
             <Button onClick={startQuiz} size="lg" className="text-lg px-8 py-3">
-              Start Assessment
+              Start AI Assessment
             </Button>
           </CardContent>
         </Card>
@@ -218,8 +241,7 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
   }
 
   if (showResult) {
-    const correctAnswers = answers.filter((answer, index) => answer === questions[index].correct).length;
-    const score = Math.round((correctAnswers / questions.length) * 100);
+    const score = aiAnalysis?.score || 0;
     
     return (
       <div className="max-w-4xl mx-auto text-center">
@@ -227,30 +249,58 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
           <CardHeader>
             <CardTitle className="text-2xl flex items-center justify-center space-x-2">
               {score >= 70 ? <CheckCircle className="h-6 w-6 text-green-500" /> : <Brain className="h-6 w-6 text-blue-500" />}
-              <span>Assessment Complete</span>
+              <span>AI Assessment Complete</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="text-6xl font-bold text-blue-600">{score}%</div>
-            <div className="space-y-2">
-              <div className="text-lg">
-                {score >= 70 ? "Excellent work! You've mastered this topic." : "Good effort! Let's work on strengthening your knowledge."}
+            {isAnalyzing ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center space-x-2">
+                  <Sparkles className="h-6 w-6 text-blue-500 animate-pulse" />
+                  <span className="text-lg">AI is analyzing your responses...</span>
+                </div>
+                <Progress value={66} className="w-full max-w-md mx-auto" />
               </div>
-              <div className="text-gray-600">
-                You answered {correctAnswers} out of {questions.length} questions correctly.
-              </div>
-            </div>
-            
-            {score < 70 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800">
-                  🤖 AI Analysis: I've identified areas where you need more practice. 
-                  You'll receive personalized learning materials to help you improve!
-                </p>
-              </div>
+            ) : (
+              <>
+                <div className="text-6xl font-bold text-blue-600">{score}%</div>
+                <div className="space-y-2">
+                  <div className="text-lg">
+                    {score >= 70 ? "Excellent work! You've mastered this topic." : "Good effort! Let's work on strengthening your knowledge."}
+                  </div>
+                  <div className="text-gray-600">
+                    You answered {Math.round((score / 100) * questions.length)} out of {questions.length} questions correctly.
+                  </div>
+                </div>
+                
+                {aiAnalysis && (
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto text-left">
+                    <h3 className="font-medium text-blue-800 mb-2 flex items-center space-x-2">
+                      <Sparkles className="h-4 w-4" />
+                      <span>AI Analysis</span>
+                    </h3>
+                    <p className="text-blue-800 mb-3">{aiAnalysis.personalizedFeedback}</p>
+                    {aiAnalysis.recommendations && aiAnalysis.recommendations.length > 0 && (
+                      <div>
+                        <p className="font-medium text-blue-800 mb-2">Recommendations:</p>
+                        <ul className="text-sm text-blue-700 space-y-1">
+                          {aiAnalysis.recommendations.map((rec: string, index: number) => (
+                            <li key={index} className="flex items-start space-x-2">
+                              <span className="text-blue-500">•</span>
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="text-sm text-gray-500">
+                  {score < 70 ? "Preparing personalized learning content..." : "Returning to dashboard..."}
+                </div>
+              </>
             )}
-            
-            <div className="text-sm text-gray-500">Redirecting to personalized content...</div>
           </CardContent>
         </Card>
       </div>
@@ -270,7 +320,7 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
       {/* Quiz Header */}
       <div className="mb-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{getTopicTitle(topic)} - Assessment</h1>
+          <h1 className="text-2xl font-bold">{getTopicTitle(topic)} - AI Assessment</h1>
           <div className="flex items-center space-x-2 text-lg font-mono">
             <Timer className="h-5 w-5" />
             <span className={timeRemaining < 60 ? 'text-red-500' : ''}>{formatTime(timeRemaining)}</span>
@@ -322,7 +372,7 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
               disabled={!selectedAnswer}
               className="px-8"
             >
-              {currentQuestion === questions.length - 1 ? 'Submit Quiz' : 'Next Question'}
+              {currentQuestion === questions.length - 1 ? 'Submit for AI Analysis' : 'Next Question'}
             </Button>
           </div>
         </CardContent>
