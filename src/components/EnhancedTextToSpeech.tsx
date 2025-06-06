@@ -34,60 +34,28 @@ const EnhancedTextToSpeech = ({
     setIsLoading(true);
     
     try {
-      const elevenlabsApiKey = aiService.getElevenlabsApiKey();
+      // Use Supabase Edge Function for speech generation
+      const audioBlob = await aiService.generateSpeech(text);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
       
-      if (!elevenlabsApiKey || elevenlabsApiKey === 'YOUR_ELEVENLABS_API_KEY_HERE') {
+      audio.onplay = () => {
+        setIsLoading(false);
+        onPlay(text);
+      };
+      
+      audio.onended = () => {
+        onStop();
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsLoading(false);
         // Fallback to browser speech synthesis
         onPlay(text);
-        setIsLoading(false);
-        return;
-      }
-
-      // Use ElevenLabs API for high-quality speech
-      const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/EXAVITQu4vr4xnSDxMaL', {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': elevenlabsApiKey
-        },
-        body: JSON.stringify({
-          text: text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.5,
-            style: 0.0,
-            use_speaker_boost: true
-          }
-        })
-      });
-
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        audio.onplay = () => {
-          setIsLoading(false);
-          onPlay(text);
-        };
-        
-        audio.onended = () => {
-          onStop();
-          URL.revokeObjectURL(audioUrl);
-        };
-        
-        audio.onerror = () => {
-          setIsLoading(false);
-          // Fallback to browser speech synthesis
-          onPlay(text);
-        };
-        
-        await audio.play();
-      } else {
-        throw new Error('ElevenLabs API failed');
-      }
+      };
+      
+      await audio.play();
     } catch (error) {
       console.error('Error with ElevenLabs TTS:', error);
       setIsLoading(false);
