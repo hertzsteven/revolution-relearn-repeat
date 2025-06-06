@@ -1,4 +1,5 @@
 
+
 import { supabase } from '@/integrations/supabase/client'
 
 interface QuizAnalysisResult {
@@ -15,10 +16,6 @@ interface LearningContentRequest {
 }
 
 class SupabaseService {
-  private isConfigured(): boolean {
-    return supabase !== null
-  }
-
   async analyzeQuizResults(
     questions: any[], 
     answers: number[], 
@@ -113,24 +110,9 @@ class SupabaseService {
     weakAreas: string[];
     aiAnalysis: any;
   }) {
-    try {
-      const { data, error } = await supabase
-        .from('quiz_sessions')
-        .insert({
-          user_id: sessionData.userId,
-          topic: sessionData.topic,
-          score: sessionData.score,
-          weak_areas: sessionData.weakAreas,
-          ai_analysis: sessionData.aiAnalysis
-        })
-
-      if (error) throw error
-      return data
-
-    } catch (error) {
-      console.error('Error saving quiz session:', error);
-      throw error;
-    }
+    // Skip database operations since tables don't exist yet
+    console.log('Quiz session data (not saved to database):', sessionData);
+    return null;
   }
 
   async saveLearningProgress(progressData: {
@@ -140,43 +122,18 @@ class SupabaseService {
     completed: boolean;
     timeSpent: number;
   }) {
-    try {
-      const { data, error } = await supabase
-        .from('learning_progress')
-        .upsert({
-          user_id: progressData.userId,
-          topic: progressData.topic,
-          section: progressData.section,
-          completed: progressData.completed,
-          time_spent: progressData.timeSpent,
-          updated_at: new Date().toISOString()
-        })
-
-      if (error) throw error
-      return data
-
-    } catch (error) {
-      console.error('Error saving learning progress:', error);
-      throw error;
-    }
+    // Skip database operations since tables don't exist yet
+    console.log('Learning progress data (not saved to database):', progressData);
+    return null;
   }
 
   async getUserProgress(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('learning_progress')
-        .select('*')
-        .eq('user_id', userId)
-
-      if (error) throw error
-      return data
-
-    } catch (error) {
-      console.error('Error fetching user progress:', error);
-      return [];
-    }
+    // Return empty array since tables don't exist yet
+    console.log('Getting user progress for:', userId, '(returning empty array)');
+    return [];
   }
 }
 
 export const supabaseService = new SupabaseService();
 export { supabase };
+
