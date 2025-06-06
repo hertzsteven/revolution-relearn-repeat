@@ -1,4 +1,3 @@
-
 interface QuizAnalysisResult {
   score: number;
   weakAreas: string[];
@@ -13,10 +12,15 @@ interface LearningContentRequest {
 }
 
 class AIService {
-  private openaiApiKey: string | null = null;
+  private openaiApiKey: string = 'YOUR_OPENAI_API_KEY_HERE';
+  private elevenlabsApiKey: string = 'YOUR_ELEVENLABS_API_KEY_HERE';
 
   setApiKey(apiKey: string) {
     this.openaiApiKey = apiKey;
+  }
+
+  getElevenlabsApiKey(): string {
+    return this.elevenlabsApiKey;
   }
 
   async analyzeQuizResults(

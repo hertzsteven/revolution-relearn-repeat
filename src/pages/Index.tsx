@@ -1,42 +1,23 @@
-
 import { useState, useEffect } from 'react';
 import TopicDashboard from '@/components/TopicDashboard';
 import QuizInterface from '@/components/QuizInterface';
 import LearningContent from '@/components/LearningContent';
 import ProgressTracker from '@/components/ProgressTracker';
-import ApiKeySetup from '@/components/ApiKeySetup';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, BookOpen, Target, Trophy } from 'lucide-react';
-import { aiService } from '@/utils/aiService';
 
 export type AppMode = 'dashboard' | 'quiz' | 'learning' | 'progress';
 
 const Index = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>('dashboard');
   const [selectedTopic, setSelectedTopic] = useState<string>('');
-  const [hasApiKeys, setHasApiKeys] = useState(false);
   const [studentProgress, setStudentProgress] = useState({
     causes: { completed: false, score: 0, weakAreas: [] as string[], aiAnalysis: null },
     events: { completed: false, score: 0, weakAreas: [] as string[], aiAnalysis: null },
     figures: { completed: false, score: 0, weakAreas: [] as string[], aiAnalysis: null },
     documents: { completed: false, score: 0, weakAreas: [] as string[], aiAnalysis: null }
   });
-
-  useEffect(() => {
-    // Check if API keys are already stored
-    const openaiKey = localStorage.getItem('openai_api_key');
-    const elevenlabsKey = localStorage.getItem('elevenlabs_api_key');
-    
-    if (openaiKey && elevenlabsKey) {
-      setHasApiKeys(true);
-      aiService.setApiKey(openaiKey);
-    }
-  }, []);
-
-  const handleApiKeysSet = () => {
-    setHasApiKeys(true);
-  };
 
   const handleTopicSelect = (topic: string) => {
     setSelectedTopic(topic);
@@ -60,10 +41,6 @@ const Index = () => {
       setCurrentMode('dashboard');
     }
   };
-
-  if (!hasApiKeys) {
-    return <ApiKeySetup onKeysSet={handleApiKeysSet} />;
-  }
 
   const renderContent = () => {
     switch (currentMode) {

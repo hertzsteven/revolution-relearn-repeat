@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { aiService } from '@/utils/aiService';
 
 interface EnhancedTextToSpeechProps {
   text: string;
@@ -33,9 +34,9 @@ const EnhancedTextToSpeech = ({
     setIsLoading(true);
     
     try {
-      const elevenlabsApiKey = localStorage.getItem('elevenlabs_api_key');
+      const elevenlabsApiKey = aiService.getElevenlabsApiKey();
       
-      if (!elevenlabsApiKey) {
+      if (!elevenlabsApiKey || elevenlabsApiKey === 'YOUR_ELEVENLABS_API_KEY_HERE') {
         // Fallback to browser speech synthesis
         onPlay(text);
         setIsLoading(false);
