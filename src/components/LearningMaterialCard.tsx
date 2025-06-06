@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,18 +37,10 @@ const LearningMaterialCard = ({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
-            <BookOpen className="h-5 w-5" />
-            <span>{material.title}</span>
-          </CardTitle>
-          <TextToSpeechButton
-            text={getContentText(material, 'overview')}
-            isPlaying={isPlaying}
-            onPlay={onPlayAudio}
-            onStop={onStopAudio}
-          />
-        </div>
+        <CardTitle className="flex items-center space-x-2">
+          <BookOpen className="h-5 w-5" />
+          <span>{material.title}</span>
+        </CardTitle>
       </CardHeader>
       
       <CardContent>
