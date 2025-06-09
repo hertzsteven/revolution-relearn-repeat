@@ -1,18 +1,10 @@
-
 import { createClient } from '@supabase/supabase-js'
 
-// Get environment variables with fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Use the actual Supabase project credentials
+const supabaseUrl = 'https://wutlnloajnuppgtezhys.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dGxubG9ham51cHBndGV6aHlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMjYzMjksImV4cCI6MjA2NDgwMjMyOX0.P-7xFr9BkqKMEkK9kDFIB0V_AHkmlJBavd4XyxyimxI'
 
-// Create a default client or null if not configured
-let supabase: any = null
-
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey)
-} else {
-  console.warn('Supabase environment variables not configured. Some features may not work.')
-}
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 interface QuizAnalysisResult {
   score: number;
@@ -100,18 +92,26 @@ class SupabaseService {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-speech', {
-        body: {
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-speech`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           text,
           voiceId
-        }
-      })
+        })
+      });
 
-      if (error) throw error
-      
-      // Convert the response to a blob
-      const audioBlob = new Blob([data], { type: 'audio/mpeg' })
-      return audioBlob
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Speech generation failed: ${errorText}`);
+      }
+
+      // The edge function returns raw audio data as application/octet-stream
+      const audioBlob = await response.blob();
+      return audioBlob;
 
     } catch (error) {
       console.error('Error generating speech:', error);
