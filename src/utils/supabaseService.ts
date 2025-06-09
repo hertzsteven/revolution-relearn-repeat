@@ -1,10 +1,18 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://wutlnloajnuppgtezhys.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dGxubG9ham51cHBndGV6aHlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMjYzMjksImV4cCI6MjA2NDgwMjMyOX0.P-7xFr9BkqKMEkK9kDFIB0V_AHkmlJBavd4XyxyimxI'
+// Get environment variables with fallbacks
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Create a default client or null if not configured
+let supabase: any = null
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabase = createClient(supabaseUrl, supabaseAnonKey)
+} else {
+  console.warn('Supabase environment variables not configured. Some features may not work.')
+}
 
 interface QuizAnalysisResult {
   score: number;
@@ -20,12 +28,21 @@ interface LearningContentRequest {
 }
 
 class SupabaseService {
+  private isConfigured(): boolean {
+    return supabase !== null
+  }
+
   async analyzeQuizResults(
     questions: any[], 
     answers: number[], 
     topic: string,
     userId?: string
   ): Promise<QuizAnalysisResult> {
+    if (!this.isConfigured()) {
+      console.log('Supabase not configured, using fallback analysis');
+      return this.getFallbackAnalysis(questions, answers);
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('analyze-quiz', {
         body: {
@@ -41,21 +58,28 @@ class SupabaseService {
 
     } catch (error) {
       console.error('Error analyzing quiz results:', error);
-      // Fallback to simple analysis
-      const correctAnswers = answers.filter((answer, index) => answer === questions[index].correct).length;
-      const score = Math.round((correctAnswers / questions.length) * 100);
-      const weakAreas = questions.filter((q, index) => answers[index] !== q.correct).map(q => q.topic);
-      
-      return {
-        score,
-        weakAreas: [...new Set(weakAreas)],
-        personalizedFeedback: "AI analysis temporarily unavailable. Please review the topics you missed.",
-        recommendations: ["Review the missed topics", "Practice with additional questions", "Focus on key concepts"]
-      };
+      return this.getFallbackAnalysis(questions, answers);
     }
   }
 
+  private getFallbackAnalysis(questions: any[], answers: number[]): QuizAnalysisResult {
+    const correctAnswers = answers.filter((answer, index) => answer === questions[index].correct).length;
+    const score = Math.round((correctAnswers / questions.length) * 100);
+    const weakAreas = questions.filter((q, index) => answers[index] !== q.correct).map(q => q.topic);
+    
+    return {
+      score,
+      weakAreas: [...new Set(weakAreas)],
+      personalizedFeedback: "AI analysis requires Supabase configuration. Please review the topics you missed.",
+      recommendations: ["Review the missed topics", "Practice with additional questions", "Focus on key concepts"]
+    };
+  }
+
   async generatePersonalizedContent(request: LearningContentRequest): Promise<any> {
+    if (!this.isConfigured()) {
+      throw new Error('Supabase not configured. Please set up Supabase integration to use this feature.');
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('generate-content', {
         body: request
@@ -71,6 +95,10 @@ class SupabaseService {
   }
 
   async generateSpeech(text: string, voiceId?: string): Promise<Blob> {
+    if (!this.isConfigured()) {
+      throw new Error('Supabase not configured. Please set up Supabase integration to use text-to-speech.');
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('generate-speech', {
         body: {
@@ -98,9 +126,29 @@ class SupabaseService {
     weakAreas: string[];
     aiAnalysis: any;
   }) {
-    // Skip database operations since tables don't exist yet
-    console.log('Quiz session would be saved:', sessionData);
-    return null;
+    if (!this.isConfigured()) {
+      console.log('Supabase not configured, skipping quiz session save');
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('quiz_sessions')
+        .insert({
+          user_id: sessionData.userId,
+          topic: sessionData.topic,
+          score: sessionData.score,
+          weak_areas: sessionData.weakAreas,
+          ai_analysis: sessionData.aiAnalysis
+        })
+
+      if (error) throw error
+      return data
+
+    } catch (error) {
+      console.error('Error saving quiz session:', error);
+      throw error;
+    }
   }
 
   async saveLearningProgress(progressData: {
@@ -110,16 +158,53 @@ class SupabaseService {
     completed: boolean;
     timeSpent: number;
   }) {
-    // Skip database operations since tables don't exist yet
-    console.log('Learning progress would be saved:', progressData);
-    return null;
+    if (!this.isConfigured()) {
+      console.log('Supabase not configured, skipping progress save');
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('learning_progress')
+        .upsert({
+          user_id: progressData.userId,
+          topic: progressData.topic,
+          section: progressData.section,
+          completed: progressData.completed,
+          time_spent: progressData.timeSpent,
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+      return data
+
+    } catch (error) {
+      console.error('Error saving learning progress:', error);
+      throw error;
+    }
   }
 
   async getUserProgress(userId: string) {
-    // Skip database operations since tables don't exist yet
-    console.log('User progress would be fetched for:', userId);
-    return [];
+    if (!this.isConfigured()) {
+      console.log('Supabase not configured, returning empty progress');
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('learning_progress')
+        .select('*')
+        .eq('user_id', userId)
+
+      if (error) throw error
+      return data
+
+    } catch (error) {
+      console.error('Error fetching user progress:', error);
+      return [];
+    }
   }
 }
 
 export const supabaseService = new SupabaseService();
+export { supabase };
