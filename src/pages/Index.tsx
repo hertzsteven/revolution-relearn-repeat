@@ -21,7 +21,16 @@ const Index = () => {
 
   const handleTopicSelect = (topic: string) => {
     setSelectedTopic(topic);
-    setCurrentMode('quiz');
+    
+    // Check if this topic has weak areas from previous attempts
+    const topicProgress = studentProgress[topic as keyof typeof studentProgress];
+    if (topicProgress && topicProgress.weakAreas.length > 0) {
+      // If there are weak areas, go to learning mode to review materials
+      setCurrentMode('learning');
+    } else {
+      // If no weak areas or topic not attempted, go to quiz mode
+      setCurrentMode('quiz');
+    }
   };
 
   const handleQuizComplete = (results: { score: number; weakAreas: string[]; aiAnalysis?: any }) => {
