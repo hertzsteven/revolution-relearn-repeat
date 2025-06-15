@@ -146,32 +146,34 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
     const correctAnswers = submittedAnswers.filter((answer, index) => answer === questions[index].correct).length;
     const score = Math.round((correctAnswers / questions.length) * 100);
     const incorrectQuestions = questions.filter((q, index) => submittedAnswers[index] !== q.correct);
-    const weakAreas = incorrectQuestions.map(q => q.topic);
-    const uniqueWeakAreas = [...new Set(weakAreas)];
-    
-    console.log('Calculated results:', {
-      correctAnswers,
-      totalQuestions: questions.length,
-      score,
-      incorrectQuestions,
-      weakAreas: uniqueWeakAreas
-    });
-    
+    let weakAreas = incorrectQuestions.map(q => q.topic);
+    let uniqueWeakAreas = [...new Set(weakAreas)];
+
+    // Ensure weakAreas fallbacks if empty
+    if (score < 100 && uniqueWeakAreas.length === 0) {
+      uniqueWeakAreas = questions
+        .filter((q, index) => submittedAnswers[index] !== q.correct)
+        .map(q => q.topic);
+    }
+
     try {
-      // Try to use AI service for enhanced analysis
       const analysis = await aiService.analyzeQuizResults(questions, submittedAnswers, topic);
-      console.log('AI Analysis result:', analysis);
-      
-      // Ensure we use our calculated weak areas if AI doesn't provide them correctly
+
+      // Ensure we use calculated weak areas if analysis is incomplete or empty
+      const finalWeakAreas = 
+        Array.isArray(analysis.weakAreas) && analysis.weakAreas.length > 0
+          ? analysis.weakAreas.filter(Boolean)
+          : uniqueWeakAreas;
+
       const finalAnalysis = {
         ...analysis,
         score,
-        weakAreas: analysis.weakAreas.length > 0 ? analysis.weakAreas : uniqueWeakAreas
+        weakAreas: finalWeakAreas
       };
-      
+
       setAiAnalysis(finalAnalysis);
       setShowResult(true);
-      
+
       setTimeout(() => {
         console.log('Calling onComplete with:', {
           score: finalAnalysis.score,
@@ -187,10 +189,11 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
     } catch (error) {
       console.error('Error analyzing quiz:', error);
       
-      // Fallback to manual calculation
+      // Fallback to manual calc
+      const fallbackWeakAreas = uniqueWeakAreas;
       const fallbackResults = {
         score,
-        weakAreas: uniqueWeakAreas,
+        weakAreas: fallbackWeakAreas,
         personalizedFeedback: score >= 70 
           ? "Great work! You've demonstrated strong knowledge in this topic."
           : `You scored ${score}%. Let's work on improving your understanding of the areas you missed.`,

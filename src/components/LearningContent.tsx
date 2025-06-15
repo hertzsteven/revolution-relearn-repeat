@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,12 +20,19 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
+  // Get learning materials for topic
+  const allMaterials = learningMaterials[topic as keyof typeof learningMaterials];
+
+  // Filter weakAreas to only those that actually have learning material
+  const realMaterialKeys = allMaterials ? Object.keys(allMaterials) : [];
+  // Only show weak areas for which we actually have content
+  const filteredWeakAreas = weakAreas.filter(area => realMaterialKeys.includes(area));
+  
+  // This function generates the filtered object for materials shown
   const getCurrentMaterials = () => {
-    const materials = learningMaterials[topic as keyof typeof learningMaterials];
-    if (!materials) return {};
-    
+    if (!allMaterials) return {};
     return Object.fromEntries(
-      Object.entries(materials).filter(([key]) => weakAreas.includes(key))
+      Object.entries(allMaterials).filter(([key]) => filteredWeakAreas.includes(key))
     );
   };
 
@@ -78,6 +84,34 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
     setIsPlaying(false);
   };
 
+  // Changed: if there are supposed to be weak areas, but no material, give user feedback!
+  if (weakAreas.length > 0 && materialKeys.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <LearningHeader
+          topic={topic}
+          weakAreas={weakAreas}
+          completedSections={completedSections}
+          materialKeys={materialKeys}
+          materials={materials}
+          onBack={onBack}
+        />
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle>Additional Review Needed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg text-gray-700 mb-6">
+              You missed some questions related to areas we currently don't have custom learning content for. Please review your quiz answers, and consider revisiting practice questions or additional resources.
+            </p>
+            <Button onClick={onBack}>Return to Dashboard</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Default behavior if no weak areas at all
   if (materialKeys.length === 0) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -89,7 +123,6 @@ const LearningContent = ({ topic, weakAreas, onComplete, onBack }: LearningConte
           materials={materials}
           onBack={onBack}
         />
-        
         <Card className="text-center">
           <CardHeader>
             <CardTitle className="flex items-center justify-center space-x-2">
