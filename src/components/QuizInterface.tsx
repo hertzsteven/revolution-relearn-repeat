@@ -139,29 +139,73 @@ const QuizInterface = ({ topic, onComplete, onBack }: QuizInterfaceProps) => {
     const submittedAnswers = finalAnswers || answers;
     setIsAnalyzing(true);
     
+    console.log('Quiz submitted with answers:', submittedAnswers);
+    console.log('Questions:', questions);
+    
+    // Calculate results immediately to ensure correct logic
+    const correctAnswers = submittedAnswers.filter((answer, index) => answer === questions[index].correct).length;
+    const score = Math.round((correctAnswers / questions.length) * 100);
+    const incorrectQuestions = questions.filter((q, index) => submittedAnswers[index] !== q.correct);
+    const weakAreas = incorrectQuestions.map(q => q.topic);
+    const uniqueWeakAreas = [...new Set(weakAreas)];
+    
+    console.log('Calculated results:', {
+      correctAnswers,
+      totalQuestions: questions.length,
+      score,
+      incorrectQuestions,
+      weakAreas: uniqueWeakAreas
+    });
+    
     try {
-      // Use AI service for analysis
+      // Try to use AI service for enhanced analysis
       const analysis = await aiService.analyzeQuizResults(questions, submittedAnswers, topic);
-      setAiAnalysis(analysis);
+      console.log('AI Analysis result:', analysis);
       
+      // Ensure we use our calculated weak areas if AI doesn't provide them correctly
+      const finalAnalysis = {
+        ...analysis,
+        score,
+        weakAreas: analysis.weakAreas.length > 0 ? analysis.weakAreas : uniqueWeakAreas
+      };
+      
+      setAiAnalysis(finalAnalysis);
       setShowResult(true);
+      
       setTimeout(() => {
+        console.log('Calling onComplete with:', {
+          score: finalAnalysis.score,
+          weakAreas: finalAnalysis.weakAreas,
+          aiAnalysis: finalAnalysis
+        });
         onComplete({ 
-          score: analysis.score, 
-          weakAreas: analysis.weakAreas,
-          aiAnalysis: analysis
+          score: finalAnalysis.score, 
+          weakAreas: finalAnalysis.weakAreas,
+          aiAnalysis: finalAnalysis
         });
       }, 4000);
     } catch (error) {
       console.error('Error analyzing quiz:', error);
-      // Fallback to simple analysis
-      const correctAnswers = submittedAnswers.filter((answer, index) => answer === questions[index].correct).length;
-      const score = Math.round((correctAnswers / questions.length) * 100);
-      const weakAreas = questions.filter((q, index) => submittedAnswers[index] !== q.correct).map(q => q.topic);
       
+      // Fallback to manual calculation
+      const fallbackResults = {
+        score,
+        weakAreas: uniqueWeakAreas,
+        personalizedFeedback: score >= 70 
+          ? "Great work! You've demonstrated strong knowledge in this topic."
+          : `You scored ${score}%. Let's work on improving your understanding of the areas you missed.`,
+        recommendations: score >= 70 
+          ? ["Continue to the next topic", "Review any challenging concepts"]
+          : ["Review the missed topics", "Study the learning materials", "Retake the quiz when ready"]
+      };
+      
+      console.log('Using fallback results:', fallbackResults);
+      setAiAnalysis(fallbackResults);
       setShowResult(true);
+      
       setTimeout(() => {
-        onComplete({ score, weakAreas: [...new Set(weakAreas)] });
+        console.log('Calling onComplete with fallback:', fallbackResults);
+        onComplete(fallbackResults);
       }, 3000);
     } finally {
       setIsAnalyzing(false);
