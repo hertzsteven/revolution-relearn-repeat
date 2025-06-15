@@ -24,25 +24,54 @@ const EnhancedTextToSpeech = ({
   className = ''
 }: EnhancedTextToSpeechProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [usingBrowserTTS, setUsingBrowserTTS] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
+  const playBrowserTTS = (textToSpeak: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.rate = 0.8;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+      
+      utterance.onstart = () => {
+        setUsingBrowserTTS(true);
+        onPlay(textToSpeak);
+      };
+      
+      utterance.onend = () => {
+        setUsingBrowserTTS(false);
+        onStop();
+      };
+      
+      utterance.onerror = () => {
+        setUsingBrowserTTS(false);
+        onStop();
+      };
+      
+      speechSynthesis.speak(utterance);
+    }
+  };
+
   const handleClick = async () => {
-    if (isPlaying) {
+    if (isPlaying || usingBrowserTTS) {
       // Stop current audio
       if (currentAudio) {
         currentAudio.pause();
         setCurrentAudio(null);
       }
+      if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+      }
+      setUsingBrowserTTS(false);
       onStop();
       return;
     }
 
     setIsLoading(true);
-    setHasError(false);
     
     try {
-      // Use ElevenLabs via Supabase Edge Function
+      // Try ElevenLabs via Supabase Edge Function first
       const audioBlob = await aiService.generateSpeech(text);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
@@ -62,34 +91,22 @@ const EnhancedTextToSpeech = ({
       
       audio.onerror = () => {
         setIsLoading(false);
-        setHasError(true);
         setCurrentAudio(null);
         URL.revokeObjectURL(audioUrl);
-        console.error('Error playing ElevenLabs audio');
+        console.error('Error playing ElevenLabs audio, falling back to browser TTS');
+        // Fallback to browser TTS
+        playBrowserTTS(text);
       };
       
       await audio.play();
     } catch (error) {
-      console.error('Error with ElevenLabs TTS:', error);
+      console.error('Error with ElevenLabs TTS, falling back to browser TTS:', error);
       setIsLoading(false);
-      setHasError(true);
       setCurrentAudio(null);
+      // Fallback to browser TTS
+      playBrowserTTS(text);
     }
   };
-
-  if (hasError) {
-    return (
-      <Button
-        variant="ghost"
-        size={size}
-        disabled
-        className={`flex items-center space-x-2 text-red-500 ${className}`}
-      >
-        <AlertCircle className="h-4 w-4" />
-        <span>Audio unavailable</span>
-      </Button>
-    );
-  }
 
   return (
     <Button
@@ -101,13 +118,13 @@ const EnhancedTextToSpeech = ({
     >
       {isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
-      ) : isPlaying ? (
+      ) : (isPlaying || usingBrowserTTS) ? (
         <VolumeX className="h-4 w-4" />
       ) : (
         <Volume2 className="h-4 w-4" />
       )}
       <span>
-        {isLoading ? 'Loading...' : isPlaying ? 'Stop' : size === 'sm' ? 'Listen' : 'Listen'}
+        {isLoading ? 'Loading...' : (isPlaying || usingBrowserTTS) ? 'Stop' : size === 'sm' ? 'Listen' : 'Listen'}
       </span>
     </Button>
   );
