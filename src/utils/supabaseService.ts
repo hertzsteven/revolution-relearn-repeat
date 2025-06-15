@@ -1,18 +1,13 @@
-
 import { createClient } from '@supabase/supabase-js'
 
-// Get environment variables with fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Use the actual Supabase project configuration
+const supabaseUrl = 'https://wutlnloajnuppgtezhys.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dGxubG9ham51cHBndGV6aHlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMjYzMjksImV4cCI6MjA2NDgwMjMyOX0.P-7xFr9BkqKMEkK9kDFIB0V_AHkmlJBavd4XyxyimxI'
 
-// Create a default client or null if not configured
-let supabase: any = null
+// Create the Supabase client
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey)
-} else {
-  console.warn('Supabase environment variables not configured. Some features may not work.')
-}
+console.log('Supabase client initialized successfully')
 
 interface QuizAnalysisResult {
   score: number;
@@ -29,7 +24,7 @@ interface LearningContentRequest {
 
 class SupabaseService {
   private isConfigured(): boolean {
-    return supabase !== null
+    return true // Now always configured
   }
 
   async analyzeQuizResults(
@@ -38,11 +33,6 @@ class SupabaseService {
     topic: string,
     userId?: string
   ): Promise<QuizAnalysisResult> {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, using fallback analysis');
-      return this.getFallbackAnalysis(questions, answers);
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('analyze-quiz', {
         body: {
@@ -76,10 +66,6 @@ class SupabaseService {
   }
 
   async generatePersonalizedContent(request: LearningContentRequest): Promise<any> {
-    if (!this.isConfigured()) {
-      throw new Error('Supabase not configured. Please set up Supabase integration to use this feature.');
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('generate-content', {
         body: request
@@ -95,10 +81,6 @@ class SupabaseService {
   }
 
   async generateSpeech(text: string, voiceId?: string): Promise<Blob> {
-    if (!this.isConfigured()) {
-      throw new Error('Supabase not configured. Please set up Supabase integration to use text-to-speech.');
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('generate-speech', {
         body: {
@@ -126,11 +108,6 @@ class SupabaseService {
     weakAreas: string[];
     aiAnalysis: any;
   }) {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, skipping quiz session save');
-      return null;
-    }
-
     try {
       const { data, error } = await supabase
         .from('quiz_sessions')
@@ -158,11 +135,6 @@ class SupabaseService {
     completed: boolean;
     timeSpent: number;
   }) {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, skipping progress save');
-      return null;
-    }
-
     try {
       const { data, error } = await supabase
         .from('learning_progress')
@@ -185,11 +157,6 @@ class SupabaseService {
   }
 
   async getUserProgress(userId: string) {
-    if (!this.isConfigured()) {
-      console.log('Supabase not configured, returning empty progress');
-      return [];
-    }
-
     try {
       const { data, error } = await supabase
         .from('learning_progress')
