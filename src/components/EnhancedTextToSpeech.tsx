@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, VolumeX, Loader2, AlertCircle } from 'lucide-react';
 import { aiService } from '@/utils/aiService';
+import { useToast } from '@/hooks/use-toast';
 
 interface EnhancedTextToSpeechProps {
   text: string;
@@ -26,6 +27,7 @@ const EnhancedTextToSpeech = ({
   const [isLoading, setIsLoading] = useState(false);
   const [usingBrowserTTS, setUsingBrowserTTS] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
 
   const playBrowserTTS = (textToSpeak: string) => {
     if ('speechSynthesis' in window) {
@@ -47,9 +49,20 @@ const EnhancedTextToSpeech = ({
       utterance.onerror = () => {
         setUsingBrowserTTS(false);
         onStop();
+        toast({
+          title: "Audio Error",
+          description: "Unable to play audio. Please try again.",
+          variant: "destructive"
+        });
       };
       
       speechSynthesis.speak(utterance);
+    } else {
+      toast({
+        title: "Not Supported",
+        description: "Text-to-speech is not supported in this browser.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -81,6 +94,10 @@ const EnhancedTextToSpeech = ({
       audio.onplay = () => {
         setIsLoading(false);
         onPlay(text);
+        toast({
+          title: "High-Quality Voice",
+          description: "Playing with ElevenLabs TTS",
+        });
       };
       
       audio.onended = () => {
@@ -103,6 +120,13 @@ const EnhancedTextToSpeech = ({
       console.error('Error with ElevenLabs TTS, falling back to browser TTS:', error);
       setIsLoading(false);
       setCurrentAudio(null);
+      
+      // Show notification about fallback
+      toast({
+        title: "Using Browser Voice",
+        description: "ElevenLabs TTS not configured. Using browser fallback.",
+      });
+      
       // Fallback to browser TTS
       playBrowserTTS(text);
     }
