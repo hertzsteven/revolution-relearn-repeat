@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Volume2, VolumeX, Loader2, AlertCircle } from 'lucide-react';
 import { aiService } from '@/utils/aiService';
 
 interface EnhancedTextToSpeechProps {
@@ -24,20 +24,30 @@ const EnhancedTextToSpeech = ({
   className = ''
 }: EnhancedTextToSpeechProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   const handleClick = async () => {
     if (isPlaying) {
+      // Stop current audio
+      if (currentAudio) {
+        currentAudio.pause();
+        setCurrentAudio(null);
+      }
       onStop();
       return;
     }
 
     setIsLoading(true);
+    setHasError(false);
     
     try {
-      // Use Supabase Edge Function for speech generation
+      // Use ElevenLabs via Supabase Edge Function
       const audioBlob = await aiService.generateSpeech(text);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      
+      setCurrentAudio(audio);
       
       audio.onplay = () => {
         setIsLoading(false);
@@ -46,23 +56,40 @@ const EnhancedTextToSpeech = ({
       
       audio.onended = () => {
         onStop();
+        setCurrentAudio(null);
         URL.revokeObjectURL(audioUrl);
       };
       
       audio.onerror = () => {
         setIsLoading(false);
-        // Fallback to browser speech synthesis
-        onPlay(text);
+        setHasError(true);
+        setCurrentAudio(null);
+        URL.revokeObjectURL(audioUrl);
+        console.error('Error playing ElevenLabs audio');
       };
       
       await audio.play();
     } catch (error) {
       console.error('Error with ElevenLabs TTS:', error);
       setIsLoading(false);
-      // Fallback to browser speech synthesis
-      onPlay(text);
+      setHasError(true);
+      setCurrentAudio(null);
     }
   };
+
+  if (hasError) {
+    return (
+      <Button
+        variant="ghost"
+        size={size}
+        disabled
+        className={`flex items-center space-x-2 text-red-500 ${className}`}
+      >
+        <AlertCircle className="h-4 w-4" />
+        <span>Audio unavailable</span>
+      </Button>
+    );
+  }
 
   return (
     <Button
